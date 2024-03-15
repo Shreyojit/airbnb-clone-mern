@@ -31,7 +31,8 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Set up static file serving for the uploads directory
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(__dirname+'/uploads'));
+
 
 // Database connection
 mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -254,6 +255,7 @@ app.put('/api/places', verifyToken, async (req, res) => {
       maxGuests,
       price,
     } = req.body;
+    console.log(addedPhotos)
 
     const userId = req.userData.userId;
 
@@ -319,23 +321,56 @@ app.put('/api/places', verifyToken, async (req, res) => {
 
 
 
-app.post('/api/bookings',verifyToken,async (req, res) => {
-  const {token} = req.cookies
+// app.post('/api/bookings',verifyToken,async (req, res) => {
+//   const {token} = req.cookies
+//   const userId = req.userData.userId;
+//   console.log(userId)
+  
+  
+//   const {
+//     place,checkIn,checkOut,numberOfGuests,name,phone,price,
+//   } = req.body;
+//   Booking.create({
+//     place,checkIn,checkOut,numberOfGuests,name,phone,price,
+//     user:userId,
+//   }).then((doc) => {
+//     res.json(doc);
+//   }).catch((err) => {
+//     throw err;
+//   });
+// });
+
+
+app.get('/api/bookings',verifyToken, async (req, res) => {
   const userId = req.userData.userId;
   console.log(userId)
-  
-  
-  const {
-    place,checkIn,checkOut,numberOfGuests,name,phone,price,
-  } = req.body;
-  Booking.create({
-    place,checkIn,checkOut,numberOfGuests,name,phone,price,
-    user:userId,
-  }).then((doc) => {
-    res.json(doc);
-  }).catch((err) => {
-    throw err;
-  });
+  try {
+    // Retrieve bookings for the user
+    const bookings = await Booking.find({ user: userId }).populate('place');
+    res.json(bookings);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch bookings', error });
+  }
+});
+
+// GET route to retrieve a specific booking by ID
+app.get('/api/bookings/:id', verifyToken, async (req, res) => {
+  const userId = req.userData.userId;
+  const bookingId = req.params.id;
+
+  try {
+    // Retrieve the booking by ID for the user
+    const booking = await Booking.findOne({ _id: bookingId, user: userId }).populate('place');
+    
+    // Check if the booking exists
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    res.json(booking);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch booking', error });
+  }
 });
 
 
@@ -343,15 +378,25 @@ app.post('/api/bookings',verifyToken,async (req, res) => {
 
 
 
-
-
-
-app.get('/api/bookings',verifyToken, async (req,res) => {
-  
-  
+app.post('/api/bookings', verifyToken,async (req, res) => {
   const userId = req.userData.userId;
-  console.log(userId)
-  res.json( await Booking.find({user:userId}).populate('place') );
+  const {
+    place, checkIn, checkOut, numberOfGuests, name, phone, price,
+  } = req.body;
+
+  // Check if all required fields are present
+  if (!place || !checkIn || !checkOut || !numberOfGuests || !name || !phone || !price) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  try {
+    const booking = await Booking.create({
+      place, checkIn, checkOut, numberOfGuests, name, phone, price, user: userId,
+    });
+    res.json(booking);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create booking', error });
+  }
 });
 
 
@@ -369,15 +414,44 @@ app.get('/api/user-places', verifyToken, async (req, res) => {
 });
 
 // Upload by link route
+// app.post('/api/upload-by-link', async (req, res) => {
+//   const { link } = req.body;
+//   console.log(link)
+//   const newName = 'photo' + Date.now() + '.jpg';
+//   console.log(newName)
+//   await imageDownloader.image({
+//     url: link,
+//     dest:  __dirname + '/uploads/' +newName,
+//   });
+//   res.json(newName);
+// });
+
+
 app.post('/api/upload-by-link', async (req, res) => {
   const { link } = req.body;
-  const newName = 'photo' + Date.now() + '.jpg';
-  await imageDownloader.image({
-    url: link,
-    dest:  __dirname + '/uploads/' +newName,
-  });
-  res.json(newName);
+
+  // Check if the link is provided
+  if (!link) {
+    return res.status(400).json({ error: 'The link parameter is required' });
+  }
+
+  try {
+    // Download the image from the provided URL
+    const newName = 'photo' + Date.now() + '.jpg';
+    await imageDownloader.image({
+      url: link,
+      dest: __dirname + '/uploads/' + newName,
+    });
+    res.json(newName);
+  } catch (error) {
+    console.error('Error downloading image:', error);
+    res.status(500).json({ error: 'Failed to download image from the provided URL' });
+  }
 });
+
+
+
+
 
 // Upload route
 const photosMiddleware = multer({ dest: 'uploads/' });

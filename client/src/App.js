@@ -17,8 +17,8 @@ import PlacePage from "./pages/PlacePage.jsx";
 import BookingPage from "./pages/BookingPage.jsx";
 
 
-// axios.defaults.baseURL = 'http://localhost:4000/api';
-axios.defaults.baseURL = 'https://airbnb-clone-mern-1-39u4.onrender.com/api';
+axios.defaults.baseURL = 'http://localhost:4000/api';
+
 axios.defaults.withCredentials = true;
 
 

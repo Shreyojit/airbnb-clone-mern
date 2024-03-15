@@ -25,19 +25,44 @@ export default function BookingWidget({place}) {
   }
 
   async function bookThisPlace() {
-    const response = await axios.post('/bookings', {
-      checkIn,checkOut,numberOfGuests,name,phone,
-      place:place._id,
-      price:numberOfNights * place.price,
-    });
-    console.log(response)
-    const bookingId = response.data._id;
-    setRedirect(`/account/bookings/${bookingId}`);
-  }
+    // Check if required fields are filled out
 
+    console.log(checkIn,checkOut,name,phone,place);
+    if (!checkIn || !checkOut || !name || !phone) {
+      // Display an error message or handle the validation error
+      console.error('Please fill out all required fields');
+      return;
+    }
+  
+    // Calculate the number of nights
+    let numberOfNights = 0;
+    if (checkIn && checkOut) {
+      numberOfNights = differenceInCalendarDays(new Date(checkOut), new Date(checkIn));
+    }
+  
+    // Make the booking request
+    try {
+      const response = await axios.post('/bookings', {
+        checkIn,
+        checkOut,
+        numberOfGuests,
+        name,
+        phone,
+        place: place._id,
+        price: numberOfNights * place.price,
+      });
+      console.log(response);
+      const bookingId = response.data._id;
+      setRedirect(`/account/bookings/${bookingId}`);
+    } catch (error) {
+      console.error('Failed to create booking:', error);
+      // Handle the error
+    }
+  }
   if (redirect) {
     return <Navigate to={redirect} />
   }
+
 
   return (
     <div className="bg-white shadow p-4 rounded-2xl">
